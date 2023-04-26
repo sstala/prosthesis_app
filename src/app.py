@@ -192,6 +192,7 @@ def prepare_content_schema_in_tab1():
                             dbc.Button(
                                 'Calculate',
                                 id='id_btn',
+                                n_clicks=0,
                                 disabled=True,
                                 className='my-button',
                             )
@@ -710,10 +711,10 @@ def build_find_parameters_plot(ab_length, bc_length, cd_length, eq_zero_var1, eq
                 x=x, y=y, z=z, type='scatter3d', mode="markers", hovertemplate=prepare_hover_tags(),
                 hoverlabel=dict(bgcolor='#103d52', bordercolor='#ffd64f', font=dict(family="Consolas")),
                 marker=dict(opacity=1,
-                            size=[marker_styles["FindParamsScatter3d"]["default_marker_size"] for k in
-                                  range(len(x))],
-                            color=[marker_styles["FindParamsScatter3d"]["default_marker_color"] for k in
-                                   range(len(x))],
+                            size=[marker_styles["FindParamsScatter3d"]["default_marker_size"]
+                                  for k in range(len(x))],
+                            color=[marker_styles["FindParamsScatter3d"]["default_marker_color"]
+                                   for k in range(len(x))],
                             line=dict(width=marker_styles["FindParamsScatter3d"]["default_marker_edge_size"],
                                       color=marker_styles["FindParamsScatter3d"]["default_marker_edge_color"])))]
             layout = dict(margin={'l': 0, 'r': 0, 't': 0, 'b': 0}, plot_bgcolor='#111111',
@@ -730,6 +731,7 @@ def build_find_parameters_plot(ab_length, bc_length, cd_length, eq_zero_var1, eq
     fig1 = go.Figure(data1, layout1)
     fig2 = go.Figure(data2, layout2)
 
+    # return fig1, fig2
     return (dcc.Graph(clear_on_unhover=True, config={'displayModeBar': False, 'scrollZoom': False}, id='id_graph1',
                       figure=fig1),
             dcc.Graph(clear_on_unhover=True, config={'displayModeBar': False, 'scrollZoom': False}, id='id_graph2',
@@ -990,21 +992,30 @@ def build_mechanism_dimensions_chart(AB, BC, CD, eq_zero_var1, eq_zero_var2, tab
                       joints_markers_bcd, bcd_tags),
         layout=set_layout(annotation_coordinates_list_bcd, x_axis_range_bcd, annotation_bcd))
 
-    if table is None:
-        mechanism_dimensions_chart_abc.data = []
-        mechanism_dimensions_chart_abc.layout.annotations = []
-        mechanism_dimensions_chart_bcd.data = []
-        mechanism_dimensions_chart_bcd.layout.annotations = []
-        return dcc.Graph(clear_on_unhover=True,
-                         config={'displayModeBar': False, 'scrollZoom': False},
-                         id="id_graph7",
-                         figure=mechanism_dimensions_chart_abc), \
-            dcc.Graph(clear_on_unhover=True,
-                      config={'displayModeBar': False, 'scrollZoom': False},
-                      id="id_graph8",
-                      figure=mechanism_dimensions_chart_bcd)
-    else:
-        return mechanism_dimensions_chart_abc, mechanism_dimensions_chart_bcd
+    return dcc.Graph(clear_on_unhover=True,
+                     config={'displayModeBar': False, 'scrollZoom': False},
+                     id="id_graph7",
+                     figure=mechanism_dimensions_chart_abc),\
+        dcc.Graph(clear_on_unhover=True,
+                  config={'displayModeBar': False, 'scrollZoom': False},
+                  id="id_graph8",
+                  figure=mechanism_dimensions_chart_bcd)
+
+    # if table is None:
+    #     mechanism_dimensions_chart_abc.data = []
+    #     mechanism_dimensions_chart_abc.layout.annotations = []
+    #     mechanism_dimensions_chart_bcd.data = []
+    #     mechanism_dimensions_chart_bcd.layout.annotations = []
+    #     return dcc.Graph(clear_on_unhover=True,
+    #                      config={'displayModeBar': False, 'scrollZoom': False},
+    #                      id="id_graph7",
+    #                      figure=mechanism_dimensions_chart_abc), \
+    #         dcc.Graph(clear_on_unhover=True,
+    #                   config={'displayModeBar': False, 'scrollZoom': False},
+    #                   id="id_graph8",
+    #                   figure=mechanism_dimensions_chart_bcd)
+    # else:
+    #     return (mechanism_dimensions_chart_abc, mechanism_dimensions_chart_bcd)
 
 
 # def build_mechanism_plot(joint_trajectory, AB, BC, CD):
@@ -1991,6 +2002,8 @@ app.layout = html.Div([
     dcc.Store(id="memory_input_panel_components_styles"),
     dcc.Store(id="memory_model_parameters_trajectory_path"),
     dcc.Store(id="memory_abc"),
+    dcc.Store(id="stored_find_parameters_charts"),  # for clientside callback
+    dcc.Store(id="stored_mechanism_dimensions_charts"),  # for clientside callback
     dcc.Interval(
         id='interval-component',
         interval=1 * 20,
@@ -2550,8 +2563,10 @@ def manage_content_style_in_tab1(sub_tab_name, _nc_calc, _btn_calc_disabled, _dd
 
 
 @app.callback(
-    Output('show_plot_param1', 'children'), Output('show_plot_param2', 'children'),
-    Output('show_plot_param13', 'children'), Output('show_plot_param23', 'children'),
+    # Output('show_plot_param1', 'children'), Output('show_plot_param2', 'children'),
+    # Output('show_plot_param13', 'children'), Output('show_plot_param23', 'children'),
+    Output("stored_find_parameters_charts", "data"),
+    Output("stored_mechanism_dimensions_charts", "data"),
     Input('id_btn', 'n_clicks'), State('id_dd1', 'value'), State('id_dd2', 'value'),
     State('id_AB', 'value'), State('id_BC', 'value'), State('id_CD', 'value'),
     prevent_initial_call=True
@@ -2560,109 +2575,212 @@ def build_charts_on_choose_solutions_content(nc_calc, dd1, dd2, ab, bc, cd):
     printinfo("build_charts_on_choose_solutions_content", ctx.triggered_id)
 
     if nc_calc != 0:
-        return build_find_parameters_plot(ab, bc, cd, dd1, dd2) + \
+        return build_find_parameters_plot(ab, bc, cd, dd1, dd2), \
             build_mechanism_dimensions_chart(ab, bc, cd, dd1, dd2, None)
 
+# @app.callback(
+#     Output('show_plot_param1', 'children'),
+#     Output('show_plot_param2', 'children'),
+#     Input("stored_find_parameters_charts", "data"),
+#     prevent_initial_call=True
+#
+# )
+# def build_choose_solutions_charts_by_stored_data(figures):
+#     print("build_choose_solutions_charts_by_stored_data")
+#
+#     return (dcc.Graph(clear_on_unhover=True, config={'displayModeBar': False, 'scrollZoom': False}, id='id_graph1',
+#                       figure=figures[0]),
+#             dcc.Graph(clear_on_unhover=True, config={'displayModeBar': False, 'scrollZoom': False}, id='id_graph2',
+#                       figure=figures[1]))
 
-@app.callback(
-    Output("id_graph1", "figure"), Output("id_graph2", "figure"),
-    Output("id_graph1", "clickData"), Output("id_graph2", "clickData"),
-    Input("id_graph1", "clickData"), Input("id_graph2", "clickData"),
-    State("id_graph1", "figure"), State("id_graph2", "figure"),
-    Input('memory_axis_labels', 'data'), Input("id_btn", "disabled"),
-    Input("id_graph1", "hoverData"), Input("id_graph2", "hoverData"),
-    prevent_initial_call=True
+# @app.callback(
+#     Output('show_plot_param13', 'children'),
+#     Output('show_plot_param23', 'children'),
+#     Input("stored_mechanism_dimensions_charts", "data"),
+#     prevent_initial_call=True
+#
+# )
+# def build_mechanism_dimensions_charts_by_stored_data(figures):
+#     print("build_mechanism_dimensions_charts_by_stored_data")
+#
+#     return figures[0], figures[1]
+
+
+# CLIENTSIDE CALLBACK FOR SHOW 'MECHANISM DIMENSIONS CHARTS'
+app.clientside_callback(
+    """
+    function(data) {
+        return [data[0], data[1]];
+    }
+    """,
+    [Output('show_plot_param13', 'children'),
+     Output('show_plot_param23', 'children')],
+    Input("stored_mechanism_dimensions_charts", "data"),
 )
-def select_active_points(cd1, cd2, fig1, fig2, labels, calc_btn_disabled, hd1, hd2):
-    printinfo("select_active_points", ctx.triggered_id)
 
-    triggered_id = ctx.triggered_id
+# CLIENTSIDE CALLBACK FOR SHOW 'FIND PARAMETERS CHARTS'
+app.clientside_callback(
+    """
+    function(data) {
+        return [data[0], data[1]];
+    }
+    """,
+    [Output('show_plot_param1', 'children'),
+     Output('show_plot_param2', 'children')],
+    Input("stored_find_parameters_charts", "data"),
+)
 
-    # -- clear graph when user changes the input parameters
-    if calc_btn_disabled == False:
-        fig1['data'][0]['x'], fig1['data'][0]['y'], fig1['data'][0]['z'] = [], [], []
-        fig2['data'][0]['x'], fig2['data'][0]['y'], fig2['data'][0]['z'] = [], [], []
-        return fig1, fig2, None, None
+# HOVER POINTS
+app.clientside_callback(
+    """
+    function(hd1, hd2, fig1, fig2) {
+    
+        data_length = fig1.data[0].marker.color.length;
+        const new_data = fig1.data;
+        const default_color_array = Array(data_length).fill("#85c5ed");
+        const default_size_array = Array(data_length).fill(4);
+        
+        if (typeof hd1 === "undefined") {
+            // set default color array
+            new_data[0].marker.color = default_color_array;
+            
+            // set default size array
+            new_data[0].marker.size = default_size_array;
+            
+            // update figure
+            new_fig = Object.assign({}, fig1, {'data': new_data});
+            return [new_fig, fig2];
+        } else {
+            // prepare color array
+            new_color_array = default_color_array;
+            new_color_array[hd1.points[0].pointNumber] = "#1dcfb1";
+            
+            // prepare size array
+            new_size_array = default_size_array;
+            new_size_array[hd1.points[0].pointNumber] = 10;
+            
+            // set new color and size arrays
+            new_data[0].marker.color = new_color_array;
+            new_data[0].marker.size = new_size_array;
+            
+            // update figure
+            new_fig = Object.assign({}, fig1, {'data': new_data});
+            return [new_fig, fig2];
+            
+        }
 
-    # -- change markers style to default when inputs are changed
-    if triggered_id == "memory_input_panel_components_values":
-        fig1['data'][0]['marker']['color'] = \
-            [marker_styles["FindParamsScatter3d"]["default_marker_color"] for i in fig1['data'][0]['marker']['color']]
-        fig1['data'][0]['marker']['size'] = \
-            [marker_styles["FindParamsScatter3d"]["default_marker_size"] for i in fig1['data'][0]['marker']['size']]
-        fig2['data'][0]['marker']['color'] = \
-            [marker_styles["FindParamsScatter3d"]["default_marker_color"] for i in fig2['data'][0]['marker']['color']]
-        fig2['data'][0]['marker']['size'] = \
-            [marker_styles["FindParamsScatter3d"]["default_marker_size"] for i in fig2['data'][0]['marker']['size']]
-        return fig1, fig2, None, None
+    }
+    """,
+    [Output('id_graph1', 'figure'),
+     Output('id_graph2', 'figure')],
+    Input("id_graph1", "hoverData"),
+    Input("id_graph2", "hoverData"),
+    State("id_graph1", "figure"),
+    State("id_graph2", "figure"),
+    # prevent_initial_call=True
 
-    # -- change markers style when points are clicked or hovered
-    elif list(ctx.triggered_prop_ids.keys())[0] in ['id_graph1.hoverData', 'id_graph2.hoverData',
-                                                    'id_graph1.clickData', 'id_graph2.clickData']:
-        # get coordinates of points necessary to create an instance of the "Marker" class
-        x1, y1, z1 = fig1["data"][0]["x"], fig1["data"][0]["y"], fig1["data"][0]["z"]
-        x2, y2, z2 = fig2["data"][0]["x"], fig2["data"][0]["y"], fig2["data"][0]["z"]
-        # prepare labels lists
-        labels_list1 = [labels["x1l"], labels["y1l"], labels["z1l"], labels["zero1l"]]
-        labels_list2 = [labels["x2l"], labels["y2l"], labels["z2l"], labels["zero2l"]]
-
-        # create an instance of the "Marker" class and call "update" to update markers style
-        # id 'update' method first cd and labels_list are own, second are foreign
-        markers_fig1 = Markers(fig1["data"][0]["marker"], x1, y1, z1)
-        m1 = markers_fig1.update(hd1, cd1, cd2, labels_list1, labels_list2, marker_styles["FindParamsScatter3d"])
-        markers_fig2 = Markers(fig2["data"][0]["marker"], x2, y2, z2)
-        m2 = markers_fig2.update(hd2, cd2, cd1, labels_list2, labels_list1, marker_styles["FindParamsScatter3d"])
-        fig1["data"][0]["marker"] = m1
-        fig2["data"][0]["marker"] = m2
-        return fig1, fig2, no_update, no_update
-    else:
-        return no_update, no_update, no_update, no_update
+)
 
 
-@app.callback(
-    Output("id_graph7", "figure"), Output("id_graph8", "figure"),
-    Input("id_table_show_sols0", 'data'), State('id_dd1', 'value'), State('id_dd2', 'value'), State('id_AB', 'value'),
-    State('id_BC', 'value'), State('id_CD', 'value'), Input("id_graph1", "hoverData"), Input("id_graph2", "hoverData"),
-    State('memory_axis_labels', 'data'), Input("id_graph7", "hoverData"), Input("id_graph8", "hoverData"),
-    State("id_graph7", "figure"), State("id_graph8", "figure"),
-    prevent_initial_call=True)
-def update_mech_dims_chart_by_hovered_points(
-        table_data, equal_zero_variable1_name_input, equal_zero_variable2_name_input, ab_input, bc_input, cd_input, hd1,
-        hd2, labels, hd7, hd8, mechanism_abc_chart, mechanism_bcd_chart):
-    printinfo("update_mech_dims_chart_by_hovered_points", ctx.triggered_id)
+# @app.callback(
+#     Output("id_graph1", "figure"), Output("id_graph2", "figure"),
+#     Output("id_graph1", "clickData"), Output("id_graph2", "clickData"),
+#     Input("id_graph1", "clickData"), Input("id_graph2", "clickData"),
+#     State("id_graph1", "figure"), State("id_graph2", "figure"),
+#     Input('memory_axis_labels', 'data'), Input("id_btn", "disabled"),
+#     Input("id_graph1", "hoverData"), Input("id_graph2", "hoverData"),
+#     prevent_initial_call=True
+# )
+# def select_active_points(cd1, cd2, fig1, fig2, labels, calc_btn_disabled, hd1, hd2):
+#     printinfo("select_active_points", ctx.triggered_id)
+#
+#     triggered_id = ctx.triggered_id
+#
+#     # -- clear graph when user changes the input parameters
+#     if calc_btn_disabled == False:
+#         fig1['data'][0]['x'], fig1['data'][0]['y'], fig1['data'][0]['z'] = [], [], []
+#         fig2['data'][0]['x'], fig2['data'][0]['y'], fig2['data'][0]['z'] = [], [], []
+#         return fig1, fig2, None, None
+#
+#     # -- change markers style to default when inputs are changed
+#     if triggered_id == "memory_input_panel_components_values":
+#         fig1['data'][0]['marker']['color'] = \
+#             [marker_styles["FindParamsScatter3d"]["default_marker_color"] for i in fig1['data'][0]['marker']['color']]
+#         fig1['data'][0]['marker']['size'] = \
+#             [marker_styles["FindParamsScatter3d"]["default_marker_size"] for i in fig1['data'][0]['marker']['size']]
+#         fig2['data'][0]['marker']['color'] = \
+#             [marker_styles["FindParamsScatter3d"]["default_marker_color"] for i in fig2['data'][0]['marker']['color']]
+#         fig2['data'][0]['marker']['size'] = \
+#             [marker_styles["FindParamsScatter3d"]["default_marker_size"] for i in fig2['data'][0]['marker']['size']]
+#         return fig1, fig2, None, None
+#
+#     # -- change markers style when points are clicked or hovered
+#     elif list(ctx.triggered_prop_ids.keys())[0] in ['id_graph1.hoverData', 'id_graph2.hoverData',
+#                                                     'id_graph1.clickData', 'id_graph2.clickData']:
+#         # get coordinates of points necessary to create an instance of the "Marker" class
+#         x1, y1, z1 = fig1["data"][0]["x"], fig1["data"][0]["y"], fig1["data"][0]["z"]
+#         x2, y2, z2 = fig2["data"][0]["x"], fig2["data"][0]["y"], fig2["data"][0]["z"]
+#         # prepare labels lists
+#         labels_list1 = [labels["x1l"], labels["y1l"], labels["z1l"], labels["zero1l"]]
+#         labels_list2 = [labels["x2l"], labels["y2l"], labels["z2l"], labels["zero2l"]]
+#
+#         # create an instance of the "Marker" class and call "update" to update markers style
+#         # id 'update' method first cd and labels_list are own, second are foreign
+#         markers_fig1 = Markers(fig1["data"][0]["marker"], x1, y1, z1)
+#         m1 = markers_fig1.update(hd1, cd1, cd2, labels_list1, labels_list2, marker_styles["FindParamsScatter3d"])
+#         markers_fig2 = Markers(fig2["data"][0]["marker"], x2, y2, z2)
+#         m2 = markers_fig2.update(hd2, cd2, cd1, labels_list2, labels_list1, marker_styles["FindParamsScatter3d"])
+#         fig1["data"][0]["marker"] = m1
+#         fig2["data"][0]["marker"] = m2
+#         return fig1, fig2, no_update, no_update
+#     else:
+#         return no_update, no_update, no_update, no_update
 
-    # Change markers style in 'id_graph7' or 'id_graph8' when point on 'id_graph7' or 'id_graph8' is hovered.
-    # "Try" avoids an error when the chart is loaded for the first time
-    if list(ctx.triggered_prop_ids.keys())[0] in ['id_graph7.hoverData', 'id_graph8.hoverData']:
-        try:
-            markers_fig_abc = Markers(mechanism_abc_chart["data"][-1]["marker"])
-            m1 = markers_fig_abc.update(hd=hd7, marker_styles=marker_styles["MechanismDimensions"])
-            mechanism_abc_chart["data"][-1]["marker"] = m1
-            markers_fig_bcd = Markers(mechanism_bcd_chart["data"][-1]["marker"])
-            m2 = markers_fig_bcd.update(hd=hd8, marker_styles=marker_styles["MechanismDimensions"])
-            mechanism_bcd_chart["data"][-1]["marker"] = m2
-            return mechanism_abc_chart, mechanism_bcd_chart
-        except:
-            return no_update, no_update
 
-    # If function is called by 'id_graph1' or 'id_graph2' and any of points is hovered then update the table data
-    # and return 'build_mechanism_dimensions_chart()' with modified table data.
-    # Otherwise, return 'build_mechanism_dimensions_chart()' with not modified table data
-    elif list(ctx.triggered_prop_ids.keys())[0] in ['id_graph1.hoverData', 'id_graph2.hoverData'] and any([hd1, hd2]):
-        if hd1 is not None:
-            xl, yl, zl, zerol = labels["x1l"], labels["y1l"], labels["z1l"], labels["zero1l"]
-            hd = hd1
-        else:
-            xl, yl, zl, zerol = labels["x2l"], labels["y2l"], labels["z2l"], labels["zero2l"]
-            hd = hd2
-
-        table_data[0][xl] = hd['points'][0]['x']
-        table_data[0][yl] = hd['points'][0]['y']
-        table_data[0][zl] = hd['points'][0]['z']
-        table_data[0][zerol] = 0
-
-    return build_mechanism_dimensions_chart(
-        ab_input, bc_input, cd_input, equal_zero_variable1_name_input, equal_zero_variable2_name_input, table_data)
+# @app.callback(
+#     Output("id_graph7", "figure"), Output("id_graph8", "figure"),
+#     Input("id_table_show_sols0", 'data'), State('id_dd1', 'value'), State('id_dd2', 'value'), State('id_AB', 'value'),
+#     State('id_BC', 'value'), State('id_CD', 'value'), Input("id_graph1", "hoverData"), Input("id_graph2", "hoverData"),
+#     State('memory_axis_labels', 'data'), Input("id_graph7", "hoverData"), Input("id_graph8", "hoverData"),
+#     State("id_graph7", "figure"), State("id_graph8", "figure"),
+#     prevent_initial_call=True)
+# def update_mech_dims_chart_by_hovered_points(
+#         table_data, equal_zero_variable1_name_input, equal_zero_variable2_name_input, ab_input, bc_input, cd_input, hd1,
+#         hd2, labels, hd7, hd8, mechanism_abc_chart, mechanism_bcd_chart):
+#     printinfo("update_mech_dims_chart_by_hovered_points", ctx.triggered_id)
+#
+#     # Change markers style in 'id_graph7' or 'id_graph8' when point on 'id_graph7' or 'id_graph8' is hovered.
+#     # "Try" avoids an error when the chart is loaded for the first time
+#     if list(ctx.triggered_prop_ids.keys())[0] in ['id_graph7.hoverData', 'id_graph8.hoverData']:
+#         try:
+#             markers_fig_abc = Markers(mechanism_abc_chart["data"][-1]["marker"])
+#             m1 = markers_fig_abc.update(hd=hd7, marker_styles=marker_styles["MechanismDimensions"])
+#             mechanism_abc_chart["data"][-1]["marker"] = m1
+#             markers_fig_bcd = Markers(mechanism_bcd_chart["data"][-1]["marker"])
+#             m2 = markers_fig_bcd.update(hd=hd8, marker_styles=marker_styles["MechanismDimensions"])
+#             mechanism_bcd_chart["data"][-1]["marker"] = m2
+#             return mechanism_abc_chart, mechanism_bcd_chart
+#         except:
+#             return no_update, no_update
+#
+#     # If function is called by 'id_graph1' or 'id_graph2' and any of points is hovered then update the table data
+#     # and return 'build_mechanism_dimensions_chart()' with modified table data.
+#     # Otherwise, return 'build_mechanism_dimensions_chart()' with not modified table data
+#     elif list(ctx.triggered_prop_ids.keys())[0] in ['id_graph1.hoverData', 'id_graph2.hoverData'] and any([hd1, hd2]):
+#         if hd1 is not None:
+#             xl, yl, zl, zerol = labels["x1l"], labels["y1l"], labels["z1l"], labels["zero1l"]
+#             hd = hd1
+#         else:
+#             xl, yl, zl, zerol = labels["x2l"], labels["y2l"], labels["z2l"], labels["zero2l"]
+#             hd = hd2
+#
+#         table_data[0][xl] = hd['points'][0]['x']
+#         table_data[0][yl] = hd['points'][0]['y']
+#         table_data[0][zl] = hd['points'][0]['z']
+#         table_data[0][zerol] = 0
+#
+#     return build_mechanism_dimensions_chart(
+#         ab_input, bc_input, cd_input, equal_zero_variable1_name_input, equal_zero_variable2_name_input, table_data)
 
 
 @app.callback(
